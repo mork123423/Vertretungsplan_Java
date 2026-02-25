@@ -1,4 +1,4 @@
-import javafx.application.Application;
+﻿import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -23,6 +23,11 @@ public class VertretungsplanApp extends Application {
     private final PasswordField passwordField = new PasswordField();
     private final Label statusLabel = new Label("");
 
+    private final Label todayTitle = new Label("Heute");
+    private final Label tomorrowTitle = new Label("Morgen");
+    private final TextArea todayArea = new TextArea();
+    private final TextArea tomorrowArea = new TextArea();
+
     private final Properties props = new Properties();
 
     @Override
@@ -34,11 +39,12 @@ public class VertretungsplanApp extends Application {
 
         root.getChildren().add(profileSection());
         root.getChildren().add(buttonBar());
+        root.getChildren().add(resultSection());
         root.getChildren().add(statusLabel);
 
         loadProfiles();
 
-        Scene scene = new Scene(root, 600, 320);
+        Scene scene = new Scene(root, 900, 600);
         stage.setScene(scene);
         stage.show();
     }
@@ -51,7 +57,7 @@ public class VertretungsplanApp extends Application {
         grid.setHgap(8);
         grid.setVgap(8);
 
-        profileSelect.setPromptText("Profil waehlen");
+        profileSelect.setPromptText("Profil wählen");
         profileSelect.setOnAction(e -> loadSelectedProfile());
 
         grid.add(new Label("Profil"), 0, 0);
@@ -86,7 +92,7 @@ public class VertretungsplanApp extends Application {
         Button reload = new Button("Neu laden");
         Button login = new Button("Login & Kurse laden");
         Button clear = new Button("Neu");
-        Button del = new Button("Loeschen");
+        Button del = new Button("Löschen");
 
         save.setOnAction(e -> {
             saveProfile();
@@ -99,6 +105,26 @@ public class VertretungsplanApp extends Application {
 
         HBox box = new HBox(8, save, reload, login, clear, del);
         box.setAlignment(Pos.CENTER_RIGHT);
+        return box;
+    }
+
+    private HBox resultSection() {
+        todayTitle.setStyle("-fx-font-size: 15px; -fx-font-weight: bold;");
+        tomorrowTitle.setStyle("-fx-font-size: 15px; -fx-font-weight: bold;");
+
+        todayArea.setEditable(false);
+        todayArea.setWrapText(true);
+        tomorrowArea.setEditable(false);
+        tomorrowArea.setWrapText(true);
+
+        VBox left = new VBox(6, todayTitle, todayArea);
+        VBox right = new VBox(6, tomorrowTitle, tomorrowArea);
+        VBox.setVgrow(todayArea, Priority.ALWAYS);
+        VBox.setVgrow(tomorrowArea, Priority.ALWAYS);
+
+        HBox box = new HBox(12, left, right);
+        HBox.setHgrow(left, Priority.ALWAYS);
+        HBox.setHgrow(right, Priority.ALWAYS);
         return box;
     }
 
@@ -174,7 +200,7 @@ public class VertretungsplanApp extends Application {
     private void deleteProfile() {
         String key = profileSelect.getValue();
         if (key == null || key.isEmpty()) {
-            statusLabel.setText("Kein Profil ausgewaehlt.");
+            statusLabel.setText("Kein Profil ausgewählt.");
             return;
         }
         props.remove("profile." + key + ".name");
@@ -191,7 +217,23 @@ public class VertretungsplanApp extends Application {
 
         profileSelect.getItems().setAll(names);
         newProfile();
-        statusLabel.setText("Profil geloescht.");
+        statusLabel.setText("Profil gelöscht.");
+    }
+
+    private String poop() {
+        return "  (  )\n (    )\n(      )\n (____)\n  ||||";
+    }
+
+    private String formatList(List<Map<String, String>> list) {
+        if (list == null || list.isEmpty()) return "Keine Vertretung.";
+        StringBuilder sb = new StringBuilder();
+        for (Map<String, String> e : list) {
+            String fach = e.getOrDefault("fach", "?");
+            String stunde = e.getOrDefault("stunde", "?");
+            sb.append("Du haßt \"").append(fach).append("\" in der ")
+              .append(stunde).append(". Stunde frei.\n");
+        }
+        return sb.toString().trim();
     }
 
     private void loginAndPrint() {
@@ -205,7 +247,6 @@ public class VertretungsplanApp extends Application {
         statusLabel.setText("Login... Ausgabe im Terminal.");
         try {
             if (!Vertretungsplan.login(user, pass)) {
-                System.out.println("Login fehlgeschlagen.");
                 statusLabel.setText("Login fehlgeschlagen.");
                 return;
             }
@@ -216,7 +257,6 @@ public class VertretungsplanApp extends Application {
                     "https://bonniweb.de/pluginfile.php/2992/mod_resource/content/11/w00024.htm"
             );
             if (planText.isEmpty()) {
-                System.out.println("Zugriff auf den Plan fehlgeschlagen (Login-Seite erhalten).");
                 statusLabel.setText("Plan nicht erreichbar.");
                 return;
             }
@@ -224,11 +264,10 @@ public class VertretungsplanApp extends Application {
             Map<String, List<Map<String, String>>> vertretungen =
                     Vertretungsplan.parseUntis(planText);
 
-            System.out.println("EVA-Ueberschneidungen mit deinen Kursen:");
-            int[] count = {0};
-            vertretungen.forEach((k, v) -> {
+            LinkedHashMap<String, List<Map<String, String>>> filteredByDay = new LinkedHashMap<>();
+            for (Map.Entry<String, List<Map<String, String>>> entry : vertretungen.entrySet()) {
                 List<Map<String, String>> filtered = new ArrayList<>();
-                for (Map<String, String> e : v) {
+                for (Map<String, String> e : entry.getValue()) {
                     String info = e.getOrDefault("info", "");
                     String fach = e.getOrDefault("fach", "");
                     String lehrer = e.getOrDefault("lehrer", "");
@@ -236,20 +275,41 @@ public class VertretungsplanApp extends Application {
                         filtered.add(e);
                     }
                 }
-                if (!filtered.isEmpty()) {
-                    count[0] += filtered.size();
-                    System.out.println(k);
-                    for (Map<String, String> e : filtered) {
-                        System.out.println("  " + e);
-                    }
-                }
-            });
-            if (count[0] == 0) {
-                System.out.println("Keine EVA-Ueberschneidungen gefunden.");
+                filteredByDay.put(entry.getKey(), filtered);
             }
-            statusLabel.setText("Fertig. Ausgabe im Terminal.");
+
+            List<String> days = new ArrayList<>(Vertretungsplan.splitByDay(planText).keySet());
+            String dayToday = Vertretungsplan.firstAvailableDay(planText);
+            String dayTomorrow = null;
+            if (dayToday != null) {
+                int idx = days.indexOf(dayToday);
+                if (idx >= 0 && idx + 1 < days.size()) dayTomorrow = days.get(idx + 1);
+            }
+
+            todayTitle.setText(dayToday != null ? "Heute (" + dayToday + ")" : "Heute");
+            tomorrowTitle.setText(dayTomorrow != null ? "Morgen (" + dayTomorrow + ")" : "Morgen");
+
+            List<Map<String, String>> listToday = dayToday == null
+                    ? Collections.emptyList()
+                    : filteredByDay.getOrDefault(dayToday, Collections.emptyList());
+            List<Map<String, String>> listTomorrow = dayTomorrow == null
+                    ? Collections.emptyList()
+                    : filteredByDay.getOrDefault(dayTomorrow, Collections.emptyList());
+
+            String todayText = formatList(listToday);
+            String tomorrowText = formatList(listTomorrow);
+            todayArea.setText(todayText);
+            tomorrowArea.setText(tomorrowText);
+
+            // Terminal output for debugging
+            System.out.println("Heute:");
+            System.out.println(todayText);
+            System.out.println();
+            System.out.println("Morgen:");
+            System.out.println(tomorrowText);
+
+            statusLabel.setText("Fertig.");
         } catch (Exception ex) {
-            System.out.println("Fehler: " + ex.getMessage());
             statusLabel.setText("Fehler beim Login.");
         }
     }

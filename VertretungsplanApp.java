@@ -99,7 +99,7 @@ public class VertretungsplanApp extends Application {
             statusLabel.setText("Profil gespeichert.");
         });
         reload.setOnAction(e -> loadProfiles());
-        login.setOnAction(e -> loginAndPrint());
+        login.setOnAction(e -> loginAndShow());
         clear.setOnAction(e -> newProfile());
         del.setOnAction(e -> deleteProfile());
 
@@ -220,23 +220,17 @@ public class VertretungsplanApp extends Application {
         statusLabel.setText("Profil gelöscht.");
     }
 
-    private String poop() {
-        return "  (  )\n (    )\n(      )\n (____)\n  ||||";
-    }
-
-    private String formatList(List<Map<String, String>> list) {
+    private String formatList(List<PlanEntry> list) {
         if (list == null || list.isEmpty()) return "Keine Vertretung.";
         StringBuilder sb = new StringBuilder();
-        for (Map<String, String> e : list) {
-            String fach = e.getOrDefault("fach", "?");
-            String stunde = e.getOrDefault("stunde", "?");
-            sb.append("Du haßt \"").append(fach).append("\" in der ")
-              .append(stunde).append(". Stunde frei.\n");
+        for (PlanEntry e : list) {
+            sb.append("Du haßt \"").append(e.fach).append("\" in der ")
+              .append(e.stunde).append(". Stunde frei.\n");
         }
         return sb.toString().trim();
     }
 
-    private void loginAndPrint() {
+    private void loginAndShow() {
         String user = usernameField.getText().trim();
         String pass = passwordField.getText();
         if (user.isEmpty() || pass.isEmpty()) {
@@ -244,42 +238,28 @@ public class VertretungsplanApp extends Application {
             return;
         }
 
-        statusLabel.setText("Login... Ausgabe im Terminal.");
+        statusLabel.setText("Login...");
         try {
-            if (!Vertretungsplan.login(user, pass)) {
+            BonniwebClient client = new BonniwebClient();
+            if (!client.login(user, pass)) {
                 statusLabel.setText("Login fehlgeschlagen.");
                 return;
             }
 
-            List<String> courses = Vertretungsplan.fetchCourses();
-
-            String planText = Vertretungsplan.scrapePlan(
-                    "https://bonniweb.de/pluginfile.php/2992/mod_resource/content/11/w00024.htm"
-            );
+            List<String> courses = client.fetchCourses();
+            String planText = client.fetchPlanText("https://bonniweb.de/pluginfile.php/2992/mod_resource/content/11/w00024.htm");
             if (planText.isEmpty()) {
                 statusLabel.setText("Plan nicht erreichbar.");
                 return;
             }
 
-            Map<String, List<Map<String, String>>> vertretungen =
-                    Vertretungsplan.parseUntis(planText);
+            UntisParser parser = new UntisParser();
+            Map<String, List<PlanEntry>> allByDay = parser.parse(planText);
+            EvaOverlapService overlapService = new EvaOverlapService();
+            LinkedHashMap<String, List<PlanEntry>> filtered = overlapService.filterEva(allByDay, courses);
 
-            LinkedHashMap<String, List<Map<String, String>>> filteredByDay = new LinkedHashMap<>();
-            for (Map.Entry<String, List<Map<String, String>>> entry : vertretungen.entrySet()) {
-                List<Map<String, String>> filtered = new ArrayList<>();
-                for (Map<String, String> e : entry.getValue()) {
-                    String info = e.getOrDefault("info", "");
-                    String fach = e.getOrDefault("fach", "");
-                    String lehrer = e.getOrDefault("lehrer", "");
-                    if ("EVA".equalsIgnoreCase(info) && Vertretungsplan.matchesCourse(fach, lehrer, courses)) {
-                        filtered.add(e);
-                    }
-                }
-                filteredByDay.put(entry.getKey(), filtered);
-            }
-
-            List<String> days = new ArrayList<>(Vertretungsplan.splitByDay(planText).keySet());
-            String dayToday = Vertretungsplan.firstAvailableDay(planText);
+            List<String> days = new ArrayList<>(parser.splitByDay(planText).keySet());
+            String dayToday = parser.firstAvailableDay(planText);
             String dayTomorrow = null;
             if (dayToday != null) {
                 int idx = days.indexOf(dayToday);
@@ -289,24 +269,15 @@ public class VertretungsplanApp extends Application {
             todayTitle.setText(dayToday != null ? "Heute (" + dayToday + ")" : "Heute");
             tomorrowTitle.setText(dayTomorrow != null ? "Morgen (" + dayTomorrow + ")" : "Morgen");
 
-            List<Map<String, String>> listToday = dayToday == null
+            List<PlanEntry> listToday = dayToday == null
                     ? Collections.emptyList()
-                    : filteredByDay.getOrDefault(dayToday, Collections.emptyList());
-            List<Map<String, String>> listTomorrow = dayTomorrow == null
+                    : filtered.getOrDefault(dayToday, Collections.emptyList());
+            List<PlanEntry> listTomorrow = dayTomorrow == null
                     ? Collections.emptyList()
-                    : filteredByDay.getOrDefault(dayTomorrow, Collections.emptyList());
+                    : filtered.getOrDefault(dayTomorrow, Collections.emptyList());
 
-            String todayText = formatList(listToday);
-            String tomorrowText = formatList(listTomorrow);
-            todayArea.setText(todayText);
-            tomorrowArea.setText(tomorrowText);
-
-            // Terminal output for debugging
-            System.out.println("Heute:");
-            System.out.println(todayText);
-            System.out.println();
-            System.out.println("Morgen:");
-            System.out.println(tomorrowText);
+            todayArea.setText(formatList(listToday));
+            tomorrowArea.setText(formatList(listTomorrow));
 
             statusLabel.setText("Fertig.");
         } catch (Exception ex) {

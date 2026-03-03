@@ -1,8 +1,29 @@
 # Vertretungsplan_Java
 
-## Changes since Vertretungsplan 1.1
-- JavaFX UI: larger window (600x320), added `Neu` and `Loeschen` buttons, and disallowed the profile name `Default`.
-- Profile handling: hide `default` in the profile list and simplified the prompt text for profile names.
-- Output: now prints only EVA overlaps with your courses and removed the full course list dump.
-- Added project assets: `libs/jsoup-1.22.1.jar`, HTML/page dumps, plan dumps, profile properties, and VS Code config files.
-- `Vertretungsplan.java`: no functional changes (only formatting/line endings).
+## Überblick
+Ein Java‑Programm (GUI + CLI), das sich bei Bonniweb einloggt, den aktuellen Vertretungsplan findet, UNTIS‑Einträge parst und EVA‑Überschneidungen mit deinen Kursen für Heute/Morgen anzeigt.
+
+## Funktionen
+- Login via Bonniweb (Session‑Cookies, Redirect‑Handling).
+- Automatisches Auflösen der aktuellen Plan‑URL aus einer Ressourcen‑Seite.
+- UNTIS‑Parser mit mehreren Formaten (inkl. kompakter Zeilen).
+- Kursliste aus Bonniweb abrufen und gegen EVA‑Einträge matchen.
+- Optionaler Abgleich mit Stundenplan‑PDF (PDFBox) zur besseren Treffergenauigkeit.
+- Ausgabe für Heute und Morgen.
+- JavaFX‑GUI mit Profilverwaltung (anlegen, laden, löschen) und Ergebnisanzeige.
+
+## Start
+GUI:
+- Starte `VertretungsplanApp.java`.
+
+CLI:
+- Starte `Vertretungsplan.java`.
+
+## Konfiguration
+- `profile.properties`: Profile für die GUI (lokal). Passwörter nicht ins Repo committen.
+- `config.properties`: Zugangsdaten für CLI (`username`, `password`) oder per Env‑Vars `BONNIWEB_USER`/`BONNIWEB_PASS`.
+- Libraries liegen in `libs/` (Jsoup + PDFBox).
+
+## Ausgabe
+- Zeigt EVA‑Überschneidungen pro Tag (Heute/Morgen).
+- Markiert mögliche Kursniveau‑Abweichungen (GK/LK/ZK) im CLI.

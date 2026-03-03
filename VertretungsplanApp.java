@@ -15,6 +15,8 @@ import java.util.*;
 public class VertretungsplanApp extends Application {
 
     private static final String PROFILE_FILE = "profile.properties";
+    private static final String PLAN_RESOURCE_URL = "https://bonniweb.de/mod/resource/view.php?id=1323";
+    private static final String TIMETABLE_PDF_URL = "https://bonniweb.de/pluginfile.php/2990/mod_resource/content/4/Stufe_Q2.pdf";
 
     private final ComboBox<String> profileSelect = new ComboBox<>();
     private final TextField profileKeyField = new TextField();
@@ -220,12 +222,15 @@ public class VertretungsplanApp extends Application {
         statusLabel.setText("Profil gelöscht.");
     }
 
-    private String formatList(List<PlanEntry> list) {
+    private String formatList(List<EvaMatch> list) {
         if (list == null || list.isEmpty()) return "Keine Vertretung.";
         StringBuilder sb = new StringBuilder();
-        for (PlanEntry e : list) {
+        for (EvaMatch m : list) {
+            PlanEntry e = m.entry;
+            String note = m.levelMismatch ? " (möglicherweise falscher GK/LK/ZK)" : "";
             sb.append("Du haßt \"").append(e.fach).append("\" in der ")
-              .append(e.stunde).append(". Stunde frei.\n");
+              .append(e.stunde).append(". Stunde frei.")
+              .append(note).append("\n");
         }
         return sb.toString().trim();
     }
@@ -247,7 +252,15 @@ public class VertretungsplanApp extends Application {
             }
 
             List<String> courses = client.fetchCourses();
-            String planText = client.fetchPlanText("https://bonniweb.de/pluginfile.php/2992/mod_resource/content/11/w00024.htm");
+            String timetableText = "";
+            String timetableWarning = "";
+            try {
+                timetableText = client.fetchPdfText(TIMETABLE_PDF_URL);
+            } catch (Exception ignored) {}
+            if (timetableText == null || timetableText.trim().isEmpty()) {
+                timetableWarning = " Stundenplan konnte nicht gelesen werden.";
+            }
+            String planText = client.fetchPlanTextFromResource(PLAN_RESOURCE_URL);
             if (planText.isEmpty()) {
                 statusLabel.setText("Plan nicht erreichbar.");
                 return;
@@ -256,7 +269,7 @@ public class VertretungsplanApp extends Application {
             UntisParser parser = new UntisParser();
             Map<String, List<PlanEntry>> allByDay = parser.parse(planText);
             EvaOverlapService overlapService = new EvaOverlapService();
-            LinkedHashMap<String, List<PlanEntry>> filtered = overlapService.filterEva(allByDay, courses);
+            LinkedHashMap<String, List<EvaMatch>> filtered = overlapService.filterEva(allByDay, courses, timetableText);
 
             List<String> days = new ArrayList<>(parser.splitByDay(planText).keySet());
             String dayToday = parser.firstAvailableDay(planText);
@@ -269,17 +282,17 @@ public class VertretungsplanApp extends Application {
             todayTitle.setText(dayToday != null ? "Heute (" + dayToday + ")" : "Heute");
             tomorrowTitle.setText(dayTomorrow != null ? "Morgen (" + dayTomorrow + ")" : "Morgen");
 
-            List<PlanEntry> listToday = dayToday == null
+            List<EvaMatch> listToday = dayToday == null
                     ? Collections.emptyList()
                     : filtered.getOrDefault(dayToday, Collections.emptyList());
-            List<PlanEntry> listTomorrow = dayTomorrow == null
+            List<EvaMatch> listTomorrow = dayTomorrow == null
                     ? Collections.emptyList()
                     : filtered.getOrDefault(dayTomorrow, Collections.emptyList());
 
             todayArea.setText(formatList(listToday));
             tomorrowArea.setText(formatList(listTomorrow));
 
-            statusLabel.setText("Fertig.");
+            statusLabel.setText("Fertig." + timetableWarning);
         } catch (Exception ex) {
             statusLabel.setText("Fehler beim Login.");
         }

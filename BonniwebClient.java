@@ -1,4 +1,7 @@
-﻿import org.jsoup.Connection;
+﻿import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
+import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -85,6 +88,104 @@ public class BonniwebClient {
         return text.replace("\r\n", "\n").replace("\r", "\n").replace('\u00A0', ' ');
     }
 
+    public String fetchPlanTextFromResource(String resourceUrl) throws Exception {
+        String planUrl = resolveLatestPlanUrl(resourceUrl);
+        if (planUrl == null || planUrl.isEmpty()) return "";
+        return fetchPlanText(planUrl);
+    }
+
+    public String fetchPdfText(String pdfUrl) throws Exception {
+        Connection.Response resp = Jsoup.connect(pdfUrl)
+                .cookies(cookies)
+                .userAgent(USER_AGENT)
+                .ignoreContentType(true)
+                .followRedirects(true)
+                .execute();
+        String contentType = resp.contentType();
+        if (contentType != null && contentType.toLowerCase().contains("text/html")) {
+            return "";
+        }
+        byte[] bytes = resp.bodyAsBytes();
+        try (PDDocument doc = Loader.loadPDF(bytes)) {
+            PDFTextStripper stripper = new PDFTextStripper();
+            String textPdf = stripper.getText(doc);
+            return textPdf.replace("\r\n", "\n").replace("\r", "\n").replace('\u00A0', ' ');
+        }
+    }
+
+    public String resolveLatestPlanUrl(String resourceUrl) throws Exception {
+        Connection.Response resp = Jsoup.connect(resourceUrl)
+                .cookies(cookies)
+                .userAgent(USER_AGENT)
+                .followRedirects(true)
+                .execute();
+        Document doc = resp.parse();
+        if (isLoginPage(doc)) return "";
+
+        String finalUrl = resp.url().toString();
+        if (finalUrl.toLowerCase().contains(".htm")) {
+            return finalUrl;
+        }
+
+        // Prefer embedded/iframe plan (usually the current week)
+        Element iframe = doc.selectFirst("iframe[src]");
+        if (iframe != null) {
+            String src = iframe.absUrl("src");
+            if (!src.isEmpty()) return src;
+        }
+        Element embed = doc.selectFirst("embed[src]");
+        if (embed != null) {
+            String src = embed.absUrl("src");
+            if (!src.isEmpty()) return src;
+        }
+        Element object = doc.selectFirst("object[data]");
+        if (object != null) {
+            String data = object.absUrl("data");
+            if (!data.isEmpty()) return data;
+        }
+
+        // meta refresh fallback
+        Element meta = doc.selectFirst("meta[http-equiv=refresh]");
+        if (meta != null) {
+            String content = meta.attr("content");
+            int idx = content.toLowerCase().indexOf("url=");
+            if (idx >= 0) {
+                String href = content.substring(idx + 4).trim();
+                String abs = Jsoup.connect(resourceUrl).get().baseUri();
+                String resolved = doc.baseUri().isEmpty() ? href : doc.baseUri() + href;
+                if (!resolved.isEmpty()) return resolved;
+            }
+        }
+
+        Elements links = doc.select("a[href]");
+        String bestUrl = "";
+        int bestNum = -1;
+        for (Element a : links) {
+            String href = a.absUrl("href");
+            if (href == null || href.isEmpty()) continue;
+            String lower = href.toLowerCase();
+            if (!lower.contains(".htm")) continue;
+
+            int n = extractWeekNumber(lower);
+            if (n > bestNum) {
+                bestNum = n;
+                bestUrl = href;
+            } else if (bestUrl.isEmpty()) {
+                bestUrl = href;
+            }
+        }
+        return bestUrl;
+    }
+
+    private int extractWeekNumber(String href) {
+        // Match w00024.htm -> 24
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("w(\\d+)\\.htm").matcher(href);
+        if (m.find()) {
+            try { return Integer.parseInt(m.group(1)); } catch (Exception ignored) {}
+        }
+        return -1;
+    }
+
     public List<String> fetchCourses() throws Exception {
         Document doc = Jsoup.connect(BASE_URL + "/my/courses.php")
                 .cookies(cookies)
@@ -105,3 +206,6 @@ public class BonniwebClient {
                 && doc.selectFirst("input[name=password]") != null;
     }
 }
+
+
+

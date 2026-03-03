@@ -7,6 +7,9 @@ import java.util.Map;
 import java.util.Properties;
 
 public class Vertretungsplan {
+    private static final String PLAN_RESOURCE_URL = "https://bonniweb.de/mod/resource/view.php?id=1323";
+    private static final String TIMETABLE_PDF_URL = "https://bonniweb.de/pluginfile.php/2990/mod_resource/content/4/Stufe_Q2.pdf";
+
     public static void main(String[] args) throws Exception {
         Properties props = new Properties();
         try { props.load(new FileInputStream("config.properties")); } catch (Exception ignored) {}
@@ -28,7 +31,14 @@ public class Vertretungsplan {
         }
 
         List<String> courses = client.fetchCourses();
-        String planText = client.fetchPlanText("https://bonniweb.de/pluginfile.php/2992/mod_resource/content/11/w00024.htm");
+        String timetableText = "";
+        try {
+            timetableText = client.fetchPdfText(TIMETABLE_PDF_URL);
+        } catch (Exception ignored) {}
+        if (timetableText == null || timetableText.trim().isEmpty()) {
+            System.out.println("Hinweis: Stundenplan konnte nicht gelesen werden.");
+        }
+        String planText = client.fetchPlanTextFromResource(PLAN_RESOURCE_URL);
         if (planText.isEmpty()) {
             System.out.println("Zugriff auf den Plan fehlgeschlagen (Login-Seite erhalten).");
             return;
@@ -37,7 +47,7 @@ public class Vertretungsplan {
         UntisParser parser = new UntisParser();
         Map<String, List<PlanEntry>> allByDay = parser.parse(planText);
         EvaOverlapService overlapService = new EvaOverlapService();
-        LinkedHashMap<String, List<PlanEntry>> filtered = overlapService.filterEva(allByDay, courses);
+        LinkedHashMap<String, List<EvaMatch>> filtered = overlapService.filterEva(allByDay, courses, timetableText);
 
         System.out.println("EVA-Überschneidungen mit deinen Kursen:");
 
@@ -53,16 +63,17 @@ public class Vertretungsplan {
         printDay(dayTomorrow, filtered);
     }
 
-    private static void printDay(String label, LinkedHashMap<String, List<PlanEntry>> filtered) {
+    private static void printDay(String label, LinkedHashMap<String, List<EvaMatch>> filtered) {
         if (label == null) return;
         System.out.println(label);
-        List<PlanEntry> list = filtered.getOrDefault(label, Collections.emptyList());
+        List<EvaMatch> list = filtered.getOrDefault(label, Collections.emptyList());
         if (list.isEmpty()) {
             System.out.println("  (Keine EVA-Überschneidungen)");
         } else {
-            for (PlanEntry e : list) {
-                System.out.println("  " + e.fach + " - Stunde " + e.stunde + " - " + e.lehrer);
+            for (EvaMatch m : list) {
+                String note = m.levelMismatch ? " (möglicherweise falscher GK/LK/ZK)" : "";
+                System.out.println("  " + m.entry.fach + " - Stunde " + m.entry.stunde + " - " + m.entry.lehrer + note);
             }
         }
-    }   d
+    }
 }

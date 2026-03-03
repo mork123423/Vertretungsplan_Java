@@ -52,6 +52,29 @@ public class UntisParser {
                             tail.trim(),
                             info
                     ));
+                    continue;
+                }
+
+                // Token-based fallback for table rows like:
+                // Q2 4 E-GK2 --- Wgm EVA
+                String[] tokens = line.split("\\s+");
+                if (tokens.length >= 5 && tokens[0].matches("[A-Za-z0-9]+") && tokens[1].matches("\\d{1,2}")) {
+                    String klasse = tokens[0];
+                    String stunde = tokens[1];
+                    String info = "";
+                    int end = tokens.length;
+                    if ("EVA".equalsIgnoreCase(tokens[end - 1]) || "VA".equalsIgnoreCase(tokens[end - 1])) {
+                        info = tokens[end - 1].toUpperCase();
+                        end--;
+                    }
+                    if (end >= 5) {
+                        String lehrer = tokens[end - 1];
+                        String raum = tokens[end - 2];
+                        String fach = String.join(" ", java.util.Arrays.copyOfRange(tokens, 2, end - 2)).trim();
+                        if (!fach.isEmpty()) {
+                            result.get(day).add(new PlanEntry(klasse, stunde, fach, raum, lehrer, info));
+                        }
+                    }
                 }
             }
         }

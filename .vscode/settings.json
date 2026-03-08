@@ -1,6 +1,17 @@
 {
+  "java.jdt.ls.java.home": "C:\\Users\\lauma\\AppData\\Local\\Programs\\Eclipse Adoptium\\jdk-25.0.2.10-hotspot",
+  "java.configuration.runtimes": [
+    {
+      "name": "JavaSE-25",
+      "path": "C:\\Users\\lauma\\AppData\\Local\\Programs\\Eclipse Adoptium\\jdk-25.0.2.10-hotspot",
+      "default": true
+    }
+  ],
   "java.project.referencedLibraries": [
-    "C:\\javafx\\javafx-sdk-25.0.2\\lib\\*.jar",
-    "${workspaceFolder}\\libs\\*.jar"
+    "C:\\javafx-sdk-25.0.2\\lib\\*.jar",
+    "libs\\*.jar"
+  ],
+  "java.project.sourcePaths": [
+    "."
   ]
 }

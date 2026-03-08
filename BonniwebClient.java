@@ -1,5 +1,4 @@
-﻿import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.pdmodel.PDDocument;
+﻿import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
@@ -106,7 +105,7 @@ public class BonniwebClient {
             return "";
         }
         byte[] bytes = resp.bodyAsBytes();
-        try (PDDocument doc = Loader.loadPDF(bytes)) {
+        try (PDDocument doc = PDDocument.load(bytes)) {
             PDFTextStripper stripper = new PDFTextStripper();
             String textPdf = stripper.getText(doc);
             return textPdf.replace("\r\n", "\n").replace("\r", "\n").replace('\u00A0', ' ');
@@ -151,7 +150,6 @@ public class BonniwebClient {
             int idx = content.toLowerCase().indexOf("url=");
             if (idx >= 0) {
                 String href = content.substring(idx + 4).trim();
-                String abs = Jsoup.connect(resourceUrl).get().baseUri();
                 String resolved = doc.baseUri().isEmpty() ? href : doc.baseUri() + href;
                 if (!resolved.isEmpty()) return resolved;
             }
@@ -205,7 +203,33 @@ public class BonniwebClient {
         return doc.selectFirst("input[name=username]") != null
                 && doc.selectFirst("input[name=password]") != null;
     }
-}
 
+    public static void main(String[] args) {
+        BonniwebClient client = new BonniwebClient();
+        
+        System.out.println("Testing BonniwebClient functionality...\n");
+        
+        // Test 1: Login
+        System.out.println("TEST 1: Login");
+        try {
+            boolean loginSuccess = client.login("Mazz_Lau", "truck91!");
+            System.out.println("Result: " + (loginSuccess ? "✓ Login successful" : "✗ Login failed"));
+        } catch (Exception e) {
+            System.out.println("✗ Login error: " + e.getMessage());
+        }
+        
+        // Test 2: Fetch courses
+        System.out.println("\nTEST 2: Fetch courses");
+        try {
+            List<String> courses = client.fetchCourses();
+            System.out.println("Result: ✓ Found " + courses.size() + " course(s)");
+            courses.forEach(c -> System.out.println("  - " + c));
+        } catch (Exception e) {
+            System.out.println("✗ Fetch courses error: " + e.getMessage());
+        }
+        
+        System.out.println("\nTesting complete!");
+    }
+}
 
 

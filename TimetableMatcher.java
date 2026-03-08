@@ -29,6 +29,11 @@ public class TimetableMatcher {
         }
     }
 
+    // NEW METHOD: Exposes the parsed data to the GUI
+    public Map<String, List<String>> getParsedTimetable() {
+        return hourLines;
+    }
+
     public boolean matches(String fach, String lehrer, String stunde) {
         String subject = normalizeSubject(fach);
         if (subject.isEmpty()) return false;

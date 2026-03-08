@@ -63,7 +63,7 @@ public class TimetableMatcher {
     }
 
     private boolean containsToken(String line, String token) {
-        String[] parts = line.toUpperCase().split("[^A-ZÄÖÜ]+");
+        String[] parts = line.toUpperCase().split("[^A-Z├ä├û├£]+");
         for (String p : parts) {
             if (p.equals(token)) return true;
         }
@@ -75,13 +75,13 @@ public class TimetableMatcher {
         String up = fach.toUpperCase();
         int idx = up.indexOf('-');
         String subject = idx > 0 ? up.substring(0, idx) : up;
-        subject = subject.replaceAll("[^A-ZÄÖÜ]", "");
+        subject = subject.replaceAll("[^A-Z├ä├û├£]", "");
         return subject.trim();
     }
 
     private String normalizeTeacher(String lehrer) {
         if (lehrer == null) return "";
-        String teacher = lehrer.replaceAll("[^A-Za-zÄÖÜäöü]", "").toUpperCase();
+        String teacher = lehrer.replaceAll("[^A-Za-z├ä├û├£├ñ├Â├╝]", "").toUpperCase();
         return teacher.trim();
     }
 }

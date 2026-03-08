@@ -1,4 +1,4 @@
-﻿public class EvaMatch {
+public class EvaMatch {
     public final PlanEntry entry;
     public final boolean levelMismatch;
 

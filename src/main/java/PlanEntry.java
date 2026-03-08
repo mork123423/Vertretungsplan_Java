@@ -1,4 +1,4 @@
-﻿public class PlanEntry {
+public class PlanEntry {
     public final String klasse;
     public final String stunde;
     public final String fach;

@@ -29,6 +29,11 @@ public class TimetableMatcher {
         }
     }
 
+    // NEW METHOD: Exposes the parsed data to the GUI
+    public Map<String, List<String>> getParsedTimetable() {
+        return hourLines;
+    }
+
     public boolean matches(String fach, String lehrer, String stunde) {
         String subject = normalizeSubject(fach);
         if (subject.isEmpty()) return false;
@@ -58,7 +63,7 @@ public class TimetableMatcher {
     }
 
     private boolean containsToken(String line, String token) {
-        String[] parts = line.toUpperCase().split("[^A-ZÄÖÜ]+");
+        String[] parts = line.toUpperCase().split("[^A-Z├ä├û├£]+");
         for (String p : parts) {
             if (p.equals(token)) return true;
         }
@@ -70,13 +75,13 @@ public class TimetableMatcher {
         String up = fach.toUpperCase();
         int idx = up.indexOf('-');
         String subject = idx > 0 ? up.substring(0, idx) : up;
-        subject = subject.replaceAll("[^A-ZÄÖÜ]", "");
+        subject = subject.replaceAll("[^A-Z├ä├û├£]", "");
         return subject.trim();
     }
 
     private String normalizeTeacher(String lehrer) {
         if (lehrer == null) return "";
-        String teacher = lehrer.replaceAll("[^A-Za-zÄÖÜäöü]", "").toUpperCase();
+        String teacher = lehrer.replaceAll("[^A-Za-z├ä├û├£├ñ├Â├╝]", "").toUpperCase();
         return teacher.trim();
     }
 }

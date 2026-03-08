@@ -1,4 +1,5 @@
-﻿import javafx.application.Application;
+import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -24,11 +25,15 @@ public class VertretungsplanApp extends Application {
     private final TextField usernameField = new TextField();
     private final PasswordField passwordField = new PasswordField();
     private final Label statusLabel = new Label("");
+    private final Button loginBtn = new Button("Login & Kurse laden");
 
+    // UI elements for the Tabs
     private final Label todayTitle = new Label("Heute");
     private final Label tomorrowTitle = new Label("Morgen");
     private final TextArea todayArea = new TextArea();
     private final TextArea tomorrowArea = new TextArea();
+    private final ListView<String> coursesList = new ListView<>();
+    private final TextArea timetableArea = new TextArea();
 
     private final Properties props = new Properties();
 
@@ -49,19 +54,24 @@ public class VertretungsplanApp extends Application {
 
     @Override
     public void start(Stage stage) {
-        stage.setTitle("Vertretungsplan - Profil");
+        stage.setTitle("Vertretungsplan - Profil & Übersicht");
 
         VBox root = new VBox(12);
         root.setPadding(new Insets(16));
 
         root.getChildren().add(profileSection());
         root.getChildren().add(buttonBar());
-        root.getChildren().add(resultSection());
+        
+        // Add the TabPane and ensure it grows to fill the window
+        TabPane resultTabs = resultSection();
+        VBox.setVgrow(resultTabs, Priority.ALWAYS);
+        root.getChildren().add(resultTabs);
+        
         root.getChildren().add(statusLabel);
 
         loadProfiles();
 
-        Scene scene = new Scene(root, 900, 600);
+        Scene scene = new Scene(root, 950, 650);
         stage.setScene(scene);
         stage.show();
     }
@@ -107,7 +117,6 @@ public class VertretungsplanApp extends Application {
     private HBox buttonBar() {
         Button save = new Button("Speichern");
         Button reload = new Button("Neu laden");
-        Button login = new Button("Login & Kurse laden");
         Button clear = new Button("Neu");
         Button del = new Button("Löschen");
 
@@ -116,16 +125,17 @@ public class VertretungsplanApp extends Application {
             statusLabel.setText("Profil gespeichert.");
         });
         reload.setOnAction(e -> loadProfiles());
-        login.setOnAction(e -> loginAndShow());
+        loginBtn.setOnAction(e -> loginAndShow());
         clear.setOnAction(e -> newProfile());
         del.setOnAction(e -> deleteProfile());
 
-        HBox box = new HBox(8, save, reload, login, clear, del);
+        HBox box = new HBox(8, save, reload, loginBtn, clear, del);
         box.setAlignment(Pos.CENTER_RIGHT);
         return box;
     }
 
-    private HBox resultSection() {
+    private TabPane resultSection() {
+        // --- TAB 1: Vertretungen ---
         todayTitle.setStyle("-fx-font-size: 15px; -fx-font-weight: bold;");
         tomorrowTitle.setStyle("-fx-font-size: 15px; -fx-font-weight: bold;");
 
@@ -139,10 +149,31 @@ public class VertretungsplanApp extends Application {
         VBox.setVgrow(todayArea, Priority.ALWAYS);
         VBox.setVgrow(tomorrowArea, Priority.ALWAYS);
 
-        HBox box = new HBox(12, left, right);
+        HBox vertretungBox = new HBox(12, left, right);
         HBox.setHgrow(left, Priority.ALWAYS);
         HBox.setHgrow(right, Priority.ALWAYS);
-        return box;
+        vertretungBox.setPadding(new Insets(8));
+
+        Tab vertretungTab = new Tab("Vertretungen", vertretungBox);
+        vertretungTab.setClosable(false);
+
+        // --- TAB 2: Moodle Kurse ---
+        VBox coursesBox = new VBox(6, new Label("Deine erkannten Moodle-Kurse:"), coursesList);
+        VBox.setVgrow(coursesList, Priority.ALWAYS);
+        coursesBox.setPadding(new Insets(8));
+        Tab coursesTab = new Tab("Meine Kurse", coursesBox);
+        coursesTab.setClosable(false);
+
+        // --- TAB 3: Stundenplan (PDF Text) ---
+        timetableArea.setEditable(false);
+        timetableArea.setStyle("-fx-font-family: monospace;"); // Makes tables easier to read
+        VBox timetableBox = new VBox(6, new Label("Extrahierter Text aus der Stundenplan-PDF (Stufe Q2):"), timetableArea);
+        VBox.setVgrow(timetableArea, Priority.ALWAYS);
+        timetableBox.setPadding(new Insets(8));
+        Tab timetableTab = new Tab("Stundenplan (PDF)", timetableBox);
+        timetableTab.setClosable(false);
+
+        return new TabPane(vertretungTab, coursesTab, timetableTab);
     }
 
     private void loadProfiles() {
@@ -245,7 +276,7 @@ public class VertretungsplanApp extends Application {
         for (EvaMatch m : list) {
             PlanEntry e = m.entry;
             String note = m.levelMismatch ? " (möglicherweise falscher GK/LK/ZK)" : "";
-            sb.append("Du haßt \"").append(e.fach).append("\" in der ")
+            sb.append("Du hast \"").append(e.fach).append("\" in der ")
               .append(e.stunde).append(". Stunde frei.")
               .append(note).append("\n");
         }
@@ -260,59 +291,98 @@ public class VertretungsplanApp extends Application {
             return;
         }
 
-        statusLabel.setText("Login...");
-        try {
-            BonniwebClient client = new BonniwebClient();
-            if (!client.login(user, pass)) {
-                statusLabel.setText("Login fehlgeschlagen.");
-                return;
-            }
-
-            List<String> courses = client.fetchCourses();
-            String timetableText = "";
-            String timetableWarning = "";
+        loginBtn.setDisable(true);
+        statusLabel.setText("Login und Daten werden geladen... Bitte warten.");
+        
+        // Execute heavy web-scraping on a background thread to prevent UI freezing
+        new Thread(() -> {
             try {
-                timetableText = client.fetchPdfText(TIMETABLE_PDF_URL);
-            } catch (Exception ignored) {}
-            if (timetableText == null || timetableText.trim().isEmpty()) {
-                timetableWarning = " Stundenplan konnte nicht gelesen werden.";
+                BonniwebClient client = new BonniwebClient();
+                if (!client.login(user, pass)) {
+                    Platform.runLater(() -> {
+                        statusLabel.setText("Login fehlgeschlagen.");
+                        loginBtn.setDisable(false);
+                    });
+                    return;
+                }
+
+                // 1. Fetch User Courses
+                List<String> courses = client.fetchCourses();
+                
+                // 2. Fetch User/Grade Timetable PDF
+                String timetableText = "";
+                String timetableWarning = "";
+                try {
+                    timetableText = client.fetchPdfText(TIMETABLE_PDF_URL);
+                } catch (Exception ignored) {}
+                
+                if (timetableText == null || timetableText.trim().isEmpty()) {
+                    timetableWarning = " Stundenplan konnte nicht gelesen werden.";
+                }
+                
+                // 3. Fetch current Substitution plan (Vertretungsplan)
+                String planText = client.fetchPlanTextFromResource(PLAN_RESOURCE_URL);
+                if (planText.isEmpty()) {
+                    Platform.runLater(() -> {
+                        statusLabel.setText("Plan nicht erreichbar.");
+                        loginBtn.setDisable(false);
+                    });
+                    return;
+                }
+
+                UntisParser parser = new UntisParser();
+                Map<String, List<PlanEntry>> allByDay = parser.parse(planText);
+                EvaOverlapService overlapService = new EvaOverlapService();
+                LinkedHashMap<String, List<EvaMatch>> filtered = overlapService.filterEva(allByDay, courses, timetableText);
+
+                List<String> days = new ArrayList<>(parser.splitByDay(planText).keySet());
+                String dayToday = parser.firstAvailableDay(planText);
+                String dayTomorrow = null;
+                if (dayToday != null) {
+                    int idx = days.indexOf(dayToday);
+                    if (idx >= 0 && idx + 1 < days.size()) dayTomorrow = days.get(idx + 1);
+                }
+
+                // Finalize data for UI Thread injection
+                final String fDayToday = dayToday;
+                final String fDayTomorrow = dayTomorrow;
+                final String fTimetableWarning = timetableWarning;
+                final String fTimetableText = timetableText;
+                final List<String> fCourses = courses;
+
+                // Bring results back to the GUI Thread safely
+                Platform.runLater(() -> {
+                    // Update Vertretungen view
+                    todayTitle.setText(fDayToday != null ? "Heute (" + fDayToday + ")" : "Heute");
+                    tomorrowTitle.setText(fDayTomorrow != null ? "Morgen (" + fDayTomorrow + ")" : "Morgen");
+
+                    List<EvaMatch> listToday = fDayToday == null
+                            ? Collections.emptyList()
+                            : filtered.getOrDefault(fDayToday, Collections.emptyList());
+                    List<EvaMatch> listTomorrow = fDayTomorrow == null
+                            ? Collections.emptyList()
+                            : filtered.getOrDefault(fDayTomorrow, Collections.emptyList());
+
+                    todayArea.setText(formatList(listToday));
+                    tomorrowArea.setText(formatList(listTomorrow));
+                    
+                    // Update Courses Tab
+                    coursesList.getItems().setAll(fCourses.isEmpty() ? List.of("Keine Kurse gefunden.") : fCourses);
+                    
+                    // Update Timetable Tab
+                    timetableArea.setText(fTimetableText != null && !fTimetableText.trim().isEmpty() 
+                                    ? fTimetableText : "Kein Stundenplan gefunden/lesbar.");
+
+                    statusLabel.setText("Erfolgreich geladen." + fTimetableWarning);
+                    loginBtn.setDisable(false);
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> {
+                    statusLabel.setText("Fehler beim Abrufen der Daten: " + ex.getMessage());
+                    loginBtn.setDisable(false);
+                });
             }
-            String planText = client.fetchPlanTextFromResource(PLAN_RESOURCE_URL);
-            if (planText.isEmpty()) {
-                statusLabel.setText("Plan nicht erreichbar.");
-                return;
-            }
-
-            UntisParser parser = new UntisParser();
-            Map<String, List<PlanEntry>> allByDay = parser.parse(planText);
-            EvaOverlapService overlapService = new EvaOverlapService();
-            LinkedHashMap<String, List<EvaMatch>> filtered = overlapService.filterEva(allByDay, courses, timetableText);
-
-            List<String> days = new ArrayList<>(parser.splitByDay(planText).keySet());
-            String dayToday = parser.firstAvailableDay(planText);
-            String dayTomorrow = null;
-            if (dayToday != null) {
-                int idx = days.indexOf(dayToday);
-                if (idx >= 0 && idx + 1 < days.size()) dayTomorrow = days.get(idx + 1);
-            }
-
-            todayTitle.setText(dayToday != null ? "Heute (" + dayToday + ")" : "Heute");
-            tomorrowTitle.setText(dayTomorrow != null ? "Morgen (" + dayTomorrow + ")" : "Morgen");
-
-            List<EvaMatch> listToday = dayToday == null
-                    ? Collections.emptyList()
-                    : filtered.getOrDefault(dayToday, Collections.emptyList());
-            List<EvaMatch> listTomorrow = dayTomorrow == null
-                    ? Collections.emptyList()
-                    : filtered.getOrDefault(dayTomorrow, Collections.emptyList());
-
-            todayArea.setText(formatList(listToday));
-            tomorrowArea.setText(formatList(listTomorrow));
-
-            statusLabel.setText("Fertig." + timetableWarning);
-        } catch (Exception ex) {
-            statusLabel.setText("Fehler beim Login.");
-        }
+        }).start();
     }
 
     public static void main(String[] args) {

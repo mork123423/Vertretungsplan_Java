@@ -1,53 +1,54 @@
 # Vertretungsplan App
 
-A Java application that fetches class substitutions and matches them with a student's timetable from BonniWeb.
+Eine Java-Anwendung, die Klassenvertretungen abruft und mit dem
+Stundenplan eines Schülers von BonniWeb abgleicht.
 
-## Features
+## Funktionen
 
-- Login to BonniWeb and fetch substitution data
-- Parse timetable PDFs
-- Match substitutions with your courses
-- JavaFX GUI for displaying results
+- Anmeldung bei BonniWeb und Abruf der Vertretungsdaten
+- Parsen von Stundenplan‑PDFs
+- Abgleich der Vertretungen mit deinen Kursen
+- JavaFX‑GUI zur Anzeige der Ergebnisse
 
-## How to Use
+## Verwendung
 
-> Just download from the [Release](https://github.com/sys-skye/Vertretungsplan_Java/releases/tag/1Release) page.
+> Einfach von der [Release](https://github.com/sys-skye/Vertretungsplan_Java/releases/tag/1Release) Seite herunterladen.
 
 
-## Or Build It Yourself
+## Oder selbst bauen
 
-### Prerequisites
+### Voraussetzungen
 
 - Java 17+
 - Maven 3.6+
-- BonniWeb account credentials
+- Zugangsdaten für ein BonniWeb‑Konto
 
-### Setup
+### Einrichtung
 
-1. Clone or download the project.
+1. Projekt klonen oder herunterladen.
 
 ### Build
 ```bash
 mvn clean package
-```
+``` 
 
-### Run
+### Ausführen
 ```bash
 mvn javafx:run
-```
+``` 
 
 ---
 
 ## Project Structure
 
-| File | Description |
+| Datei | Beschreibung |
 |------|-------------|
-| `Launcher.java` | Entry point with JavaFX GUI |
-| `Vertretungsplan.java` | Main logic for fetching and processing data |
-| `BonniwebClient.java` | Handles BonniWeb authentication and data fetching |
-| `TimetableMatcher.java` | Matches substitutions with timetable |
-| `CourseMatcher.java` | Maps courses to substitution entries |
+| `Launcher.java` | Einstiegspunkt mit JavaFX‑GUI |
+| `Vertretungsplan.java` | Hauptlogik zum Abrufen und Verarbeiten der Daten |
+| `BonniwebClient.java` | Handhabt BonniWeb‑Authentifizierung und Datenerfassung |
+| `TimetableMatcher.java` | Vergleicht Vertretungen mit dem Stundenplan |
+| `CourseMatcher.java` | Ordnet Kurse den Vertretungseinträgen zu |
 
-## License
+## Lizenz
 
-Unlicensed
+Nicht lizenziert

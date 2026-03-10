@@ -4,11 +4,21 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Eine Kommandozeilen‑Variante der Anwendung. Sie arbeitet in etwa wie die
+ * GUI‑Klasse <code>VertretungsplanApp</code>, schreibt die Ergebnisse aber
+ * auf stdout statt ein Fenster anzuzeigen. Nützlich für Tests oder den
+ * Einsatz auf einem Server.
+ */
 public class Vertretungsplan {
+    // URLs, die das Programm kennt; sie verweisen auf den aktuellen Plan und
+    // auf ein PDF des Stundenplans zur Lehrer‑Übereinstimmung.
     private static final String PLAN_RESOURCE_URL = "https://bonniweb.de/mod/resource/view.php?id=1323";
     private static final String TIMETABLE_PDF_URL = "https://bonniweb.de/pluginfile.php/2990/mod_resource/content/4/Stufe_Q2.pdf";
 
+    // Einstiegspunkt, wenn ohne JavaFX gestartet wird
     public static void main(String[] args) throws Exception {
+        // Lese Zugangsdaten aus Umgebungsvariablen; praktisch für Cron‑Jobs/Tests
         String user = System.getenv("BONNIWEB_USER");
         String pass = System.getenv("BONNIWEB_PASS");
         
@@ -56,6 +66,8 @@ public class Vertretungsplan {
         printDay(dayTomorrow, filtered);
     }
 
+    // Hilfsmethode, die von main genutzt wird, um die Treffer eines Tages in
+    // lesbarer Form auszugeben
     private static void printDay(String label, LinkedHashMap<String, List<EvaMatch>> filtered) {
         if (label == null) return;
         System.out.println(label);

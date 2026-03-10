@@ -5,12 +5,29 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Parser für die Textfassung des Von‑Untis‑Vertretungsplans. Der zu parse‑
+ * sende Text ist bekanntermaßen inkonsistent, daher enthält diese Klasse
+ * mehrere Regex‑Muster und Fallback‑Heuristiken.
+ *
+ * Sie stellt eine einfache <code>parse</code>-Methode zur Verfügung, die
+ * eine Map mit Tagen (z. B. „Mo 12.3.“) zurückliefert, sowie ein paar
+ * Hilfsmethoden zum Aufteilen des Rohtextes oder zum Bestimmen des ersten
+ * verfügbaren Tages.
+ */
 public class UntisParser {
+    // Regex zum Finden der Datums-/Tagesüberschriften im Plan
     private static final Pattern DAY_PATTERN = Pattern.compile("(\\d{1,2}\\.\\d{1,2}\\.\\s+\\p{L}+)");
+    // Standardzeile mit Klasse, Stunde, Fach, Raum, Lehrer, Info
     private static final Pattern ENTRY_PATTERN = Pattern.compile("^(\\S+)\\s+(\\d{1,2})\\s+(.*?)\\s{2,}(\\S+)\\s+(\\S+)\\s*(.*)$");
     private static final Pattern FALLBACK_PATTERN = Pattern.compile("^(\\S+)\\s+(\\d{1,2})\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s*(.*)$");
     private static final Pattern COMPACT_PATTERN = Pattern.compile("^(Q\\d)(\\d{1,2})(.*?)(---|[A-Z]{2,5}\\d{3,4})(.+)$");
 
+    /**
+     * Parst den Rohtext und liefert eine Map, deren Schlüssel die Tages-
+     * überschrift ist und deren Wert eine Liste von <code>PlanEntry</code>
+     * Objekten für diesen Tag.
+     */
     public Map<String, List<PlanEntry>> parse(String text) {
         Map<String, List<PlanEntry>> result = new LinkedHashMap<>();
         List<String> parts = splitParts(text);
@@ -55,7 +72,7 @@ public class UntisParser {
                     continue;
                 }
 
-                // Token-based fallback for table rows like:
+                // Tokenbasierter Fallback für tabellenartige Zeilen wie:
                 // Q2 4 E-GK2 --- Wgm EVA
                 String[] tokens = line.split("\\s+");
                 if (tokens.length >= 5 && tokens[0].matches("[A-Za-z0-9]+") && tokens[1].matches("\\d{1,2}")) {
@@ -82,6 +99,7 @@ public class UntisParser {
         return result;
     }
 
+    // Liefert eine Map von Tagesüberschriften auf den Rohtextblock des jeweiligen Tages
     public LinkedHashMap<String, String> splitByDay(String text) {
         LinkedHashMap<String, String> blocks = new LinkedHashMap<>();
         List<String> parts = splitParts(text);
@@ -95,6 +113,9 @@ public class UntisParser {
         return blocks;
     }
 
+    // Gibt den ersten Tag zurück, dessen Block nicht den Hinweis enthält,
+    // dass Vertretungen noch nicht freigegeben sind; wird verwendet, um
+    // "heute" zu bestimmen.
     public String firstAvailableDay(String text) {
         LinkedHashMap<String, String> blocks = splitByDay(text);
         for (Map.Entry<String, String> e : blocks.entrySet()) {
@@ -107,6 +128,9 @@ public class UntisParser {
         return blocks.isEmpty() ? null : blocks.keySet().iterator().next();
     }
 
+    // Interner Helfer: Teilt den Text in Abschnitte, bei denen ungerade
+    // Indizes die Tagesüberschrift und gerade Indizes den daran anschließenden
+    // Block enthalten.
     private List<String> splitParts(String text) {
         List<String> parts = new ArrayList<>();
         Matcher m = DAY_PATTERN.matcher(text);

@@ -3,6 +3,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Service‑Klasse, die die geparsten Vertretungseinträge filtert und nur
+ * diejenigen behält, die als "EVA" markiert sind und die mit den vom
+ * Schüler belegten Kursen überlappen. Sie verwendet den
+ * <code>CourseMatcher</code> für die unscharfe Übereinstimmung.
+ */
 public class EvaOverlapService {
     private final CourseMatcher matcher = new CourseMatcher();
 

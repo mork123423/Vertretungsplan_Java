@@ -2,9 +2,17 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Vergleicht Plan‑Einträge mit einer Kursliste via einfacher Token‑Suche.
+ */
 public class CourseMatcher {
+    // Ergebnis: kein Match / Match / Match, aber Niveau‑abweichung
     public enum MatchStatus { NONE, OK, LEVEL_MISMATCH }
 
+    /**
+     * Prüft, ob ein Plan‑Eintrag mit der Kursliste übereinstimmt. Fachname
+     * und Lehrerkürzel werden extrahiert; Niveau wird bei Bedarf geprüft.
+     */
     public MatchStatus matchStatus(String fach, String lehrer, List<String> courses) {
         if (fach == null || fach.isEmpty()) return MatchStatus.NONE;
         String subject = fach.split("-", 2)[0].trim().toUpperCase();
@@ -44,6 +52,7 @@ public class CourseMatcher {
         return anyLevelMatch ? MatchStatus.OK : MatchStatus.LEVEL_MISMATCH;
     }
 
+    // Vergleicht Niveau‑Codes im Kursstring mit denen des Plan‑Eintrags.
     private boolean courseMatchesLevel(String s, String levelType, String levelNum) {
         String tokenBase = "-" + levelType; // -GK / -LK / -ZK
         if (levelNum == null || levelNum.isEmpty()) {

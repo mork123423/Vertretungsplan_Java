@@ -13,8 +13,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 
+/**
+ * Eine einfache JavaFX-Anwendung, die dem Benutzer erlaubt, Login‑Profile
+ * für bonniweb.de zu speichern, seine aktuellen Kurse und den
+ * Vertretungsplan abzurufen und einige nützliche Informationen in Tabs
+ * anzuzeigen.
+ *
+ * Anfänger sollten sich auf die Methode <code>start</code> und die Hilfs‑
+ * methoden zur Erstellung der Benutzeroberfläche konzentrieren; der
+ * Rest der Klasse ist überwiegend plain Java zum Laden/Speichern einer
+ * <code>Properties</code>-Datei und zur Reaktion auf Button‑Klicks.
+ */
 public class VertretungsplanApp extends Application {
 
+    // Speicherort der Profildaten auf der Festplatte
     private static final Path PROFILE_PATH = resolveProfilePath();
     private static final String PLAN_RESOURCE_URL = "https://bonniweb.de/mod/resource/view.php?id=1323";
     private static final String TIMETABLE_PDF_URL = "https://bonniweb.de/pluginfile.php/2990/mod_resource/content/4/Stufe_Q2.pdf";
@@ -27,7 +39,7 @@ public class VertretungsplanApp extends Application {
     private final Label statusLabel = new Label("");
     private final Button loginBtn = new Button("Login & Kurse laden");
 
-    // UI elements for the Tabs
+    // UI‑Elemente für die Tabs
     private final Label todayTitle = new Label("Heute");
     private final Label tomorrowTitle = new Label("Morgen");
     private final TextArea todayArea = new TextArea();
@@ -37,6 +49,9 @@ public class VertretungsplanApp extends Application {
 
     private final Properties props = new Properties();
 
+    // Bestimmt, wo die profile.properties abgelegt wird; nutzt die
+    // Umgebungsvariable APPDATA (Windows‑Standard), andernfalls das
+    // aktuelle Arbeitsverzeichnis.
     private static Path resolveProfilePath() {
         String appData = System.getenv("APPDATA");
         if (appData == null || appData.isBlank()) {
@@ -45,6 +60,8 @@ public class VertretungsplanApp extends Application {
         return Path.of(appData, "Vertretungsplan", "profile.properties");
     }
 
+    // Stellt sicher, dass das Verzeichnis für die Profildatei vor dem
+    // Schreiben existiert
     private static void ensureProfileDir() {
         try {
             Path dir = PROFILE_PATH.getParent();
@@ -53,6 +70,8 @@ public class VertretungsplanApp extends Application {
     }
 
     @Override
+    // Wird vom JavaFX‑Framework beim Start aufgerufen.
+    // Hier bauen wir das Fenster (Stage) und platzieren alle Steuerelemente.
     public void start(Stage stage) {
         stage.setTitle("Vertretungsplan - Profil & Übersicht");
 
@@ -62,7 +81,8 @@ public class VertretungsplanApp extends Application {
         root.getChildren().add(profileSection());
         root.getChildren().add(buttonBar());
         
-        // Add the TabPane and ensure it grows to fill the window
+        // Füge die TabPane hinzu und sorge dafür, dass sie das Fenster
+        // ausfüllt
         TabPane resultTabs = resultSection();
         VBox.setVgrow(resultTabs, Priority.ALWAYS);
         root.getChildren().add(resultTabs);
@@ -76,6 +96,8 @@ public class VertretungsplanApp extends Application {
         stage.show();
     }
 
+    // Erstellt den Abschnitt der UI, in dem der Benutzer ein Profil wählen
+    // oder bearbeiten kann
     private VBox profileSection() {
         Label title = new Label("Profil");
         title.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
@@ -114,6 +136,8 @@ public class VertretungsplanApp extends Application {
         return box;
     }
 
+    // Erstellt die horizontale Leiste mit Speichern/Neu laden/Login/...
+    // Buttons
     private HBox buttonBar() {
         Button save = new Button("Speichern");
         Button reload = new Button("Neu laden");
@@ -134,6 +158,8 @@ public class VertretungsplanApp extends Application {
         return box;
     }
 
+    // Erstellt die TabPane, die die abgerufenen Ergebnisse anzeigt
+    // (Vertretungen, Kursliste und Stundenplantext)
     private TabPane resultSection() {
         // --- TAB 1: Vertretungen ---
         todayTitle.setStyle("-fx-font-size: 15px; -fx-font-weight: bold;");
@@ -166,7 +192,7 @@ public class VertretungsplanApp extends Application {
 
         // --- TAB 3: Stundenplan (PDF Text) ---
         timetableArea.setEditable(false);
-        timetableArea.setStyle("-fx-font-family: monospace;"); // Makes tables easier to read
+        timetableArea.setStyle("-fx-font-family: monospace;"); // Macht Tabellen leichter lesbar
         VBox timetableBox = new VBox(6, new Label("Extrahierter Text aus der Stundenplan-PDF (Stufe Q2):"), timetableArea);
         VBox.setVgrow(timetableArea, Priority.ALWAYS);
         timetableBox.setPadding(new Insets(8));
@@ -176,6 +202,7 @@ public class VertretungsplanApp extends Application {
         return new TabPane(vertretungTab, coursesTab, timetableTab);
     }
 
+    // Liest die Profil-Datei von der Festplatte und füllt das Kombinationsfeld
     private void loadProfiles() {
         props.clear();
         if (Files.exists(PROFILE_PATH)) {
@@ -200,6 +227,9 @@ public class VertretungsplanApp extends Application {
         }
     }
 
+    // Wird aufgerufen, wenn der Benutzer ein vorhandenes Profil im
+    // Kombinationsfeld auswählt; füllt dann die Textfelder mit den
+    // gespeicherten Daten
     private void loadSelectedProfile() {
         String key = profileSelect.getValue();
         if (key == null || key.isEmpty()) return;
@@ -209,6 +239,7 @@ public class VertretungsplanApp extends Application {
         passwordField.setText(props.getProperty("profile." + key + ".password", ""));
     }
 
+    // save or update the profile currently shown in the text fields
     private void saveProfile() {
         String key = profileKeyField.getText().trim();
         if (key.isEmpty()) {
@@ -237,6 +268,7 @@ public class VertretungsplanApp extends Application {
         profileSelect.getSelectionModel().select(key);
     }
 
+    // clear the form so the user can enter a completely new profile
     private void newProfile() {
         profileSelect.getSelectionModel().clearSelection();
         profileKeyField.setText("");
@@ -246,6 +278,7 @@ public class VertretungsplanApp extends Application {
         statusLabel.setText("Neues Profil.");
     }
 
+    // remove the currently selected profile from the properties file
     private void deleteProfile() {
         String key = profileSelect.getValue();
         if (key == null || key.isEmpty()) {
@@ -270,6 +303,7 @@ public class VertretungsplanApp extends Application {
         statusLabel.setText("Profil gelöscht.");
     }
 
+    // convert a list of EvaMatch objects into user-readable text
     private String formatList(List<EvaMatch> list) {
         if (list == null || list.isEmpty()) return "Keine Vertretung.";
         StringBuilder sb = new StringBuilder();
@@ -283,6 +317,8 @@ public class VertretungsplanApp extends Application {
         return sb.toString().trim();
     }
 
+    // triggered when the user presses the "Login & Kurse laden" button
+    // performs network calls on a background thread and updates UI later
     private void loginAndShow() {
         String user = usernameField.getText().trim();
         String pass = passwordField.getText();
